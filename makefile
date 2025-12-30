@@ -1,6 +1,6 @@
 CC = g++
 
-LIB = -lm `sdl2-config --libs`
+LIB = -lm -lraylib
 
 SRC = 3drender.cpp
 

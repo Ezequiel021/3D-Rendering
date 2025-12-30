@@ -17,19 +17,24 @@ Vector2 project(Vector3 v)
     return {v.x / v.z, v.y / v.z};
 }
 
-Vector3 traslate(Vector3 v, Vector3 u)
+void traslate(Vector3 &v, Vector3 u)
 {
-    return {v.x + u.x, v.y + u.y, v.z + u.z};
+    v.x += u.x;
+    v.y += u.y;
+    v.z += u.z;
 }
 
-Vector3 rotate_x(Vector3 v, float angle)
+void rotate_x(Vector3 &v, float angle)
 {
     //1   0    0
     //0  cos -sin
     //0  sin  cos
     float sin_a = sinf(angle);
     float cos_a = cosf(angle);
-    return {v.x, v.y * cos_a - v.z * sin_a, v.y * sin_a + v.z * cos_a};
+    float x = v.x, y = v.y, z = v.z;
+
+    v.y = y * cos_a - z * sin_a;
+    v.z = y * sin_a + z * cos_a;
 }
 
 int main(int argc, char **argv)
@@ -89,11 +94,14 @@ int main(int argc, char **argv)
         {
             for (int i = 0; i < 3; i++)
             {
-                vertex_a = rotate_x(pts[face[i]], angle);
-                vertex_b = rotate_x(pts[face[(i + 1) % 3]], angle);
+                vertex_a = pts[face[i]], angle; 
+                vertex_b = pts[face[(i + 1) % 3]];
 
-                vertex_a = traslate(vertex_a, traslation);
-                vertex_b = traslate(vertex_b, traslation);
+                rotate_x(vertex_a, angle);
+                rotate_x(vertex_b, angle);
+
+                traslate(vertex_a, traslation);
+                traslate(vertex_b, traslation);
 
                 DrawLineEx(transform_into_screenspace(project(vertex_a)), transform_into_screenspace(project(vertex_b)), 3, GREEN);
             }
