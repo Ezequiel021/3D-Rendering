@@ -1,43 +1,7 @@
-#include <SDL2/SDL.h>
+#include "raylib.h"
 #include <math.h>
 #include <cstdio>
 #include <iostream>
-
-struct Vector2
-{
-    float x, y;
-    Vector2()
-    {
-    }
-
-    Vector2(float x, float y)
-    {
-        this->x = x;
-        this->y = y;
-    }
-
-    Vector2 operator*(float scalar)
-    {
-        return Vector2(this->x * scalar, this->y * scalar);
-    }
-
-    Vector2 operator+(Vector2 v)
-    {
-        return Vector2(this->x + v.x, this->y + v.y);
-    }
-};
-
-struct Vector3
-{
-    float x, y, z;
-    Vector3() {}
-    Vector3(float x, float y, float z)
-    {
-        this->x = x;
-        this->y = y;
-        this->z = z;
-    }
-};
 
 const int width = 1600;
 const int height = 900;
@@ -45,112 +9,99 @@ const int height = 900;
 Vector2 transform_into_screenspace(Vector2 v)
 {
     int minsize = height < width ? height : width;
-    return Vector2(v.x * minsize + 0.5 * width, v.y * minsize + 0.5 * height);
+    return {v.x * minsize + 0.5f * width, v.y * minsize + 0.5f * height};
 }
 
 Vector2 project(Vector3 v)
 {
-    return Vector2(v.x / v.z, v.y / v.z);
+    return {v.x / v.z, v.y / v.z};
+}
+
+Vector3 traslate(Vector3 v, Vector3 u)
+{
+    return {v.x + u.x, v.y + u.y, v.z + u.z};
+}
+
+Vector3 rotate_x(Vector3 v, float angle)
+{
+    //1   0    0
+    //0  cos -sin
+    //0  sin  cos
+    float sin_a = sinf(angle);
+    float cos_a = cosf(angle);
+    return {v.x, v.y * cos_a - v.z * sin_a, v.y * sin_a + v.z * cos_a};
 }
 
 int main(int argc, char **argv)
 {
-
-    SDL_Window *window = NULL;
-    SDL_Renderer *renderer = NULL;
-
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_CreateWindowAndRenderer(width, height, 0, &window, &renderer);
-
-    if (!window)
-    {
-        printf("%s\n", SDL_GetError());
-        return 1;
-    }
-
-    if (!renderer)
-    {
-        printf("%s\n", SDL_GetError());
-        return 1;
-    }
-
-    SDL_RenderSetScale(renderer, 1, 1);
-
-    SDL_SetWindowTitle(window, "3D graph");
-    SDL_RenderClear(renderer);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-
-    SDL_Event event;
+    InitWindow(width, height, "3D Rendering Experiments");
 
     int is_running = 1;
 
-    SDL_FRect point;
-    point.h = 20;
-    point.w = 20;
-    point.x = width / 2;
-    point.y = height / 2;
-
-    SDL_RenderFillRectF(renderer, &point);
-
-    SDL_RenderPresent(renderer);
+    Rectangle point;
+    point.height = 20;
+    point.width = 20;
 
     Vector3 pts[] =
         {
-            Vector3(0.5, 0.5, 0.5),
-            Vector3(0.5, 0.5, -0.5),
-            Vector3(0.5, -0.5, 0.5),
-            Vector3(0.5, -0.5, -0.5),
-            Vector3(-0.5, 0.5, 0.5),
-            Vector3(-0.5, 0.5, -0.5),
-            Vector3(-0.5, -0.5, 0.5),
-            Vector3(-0.5, -0.5, -0.5),
+            {0.5f,   0.5f,   0.5f},
+            {0.5f,   0.5f, - 0.5f},
+            {0.5f, - 0.5f,   0.5f},
+            {0.5f, - 0.5f, - 0.5f},
+            {-0.5f,   0.5f,   0.5f},
+            {-0.5f,   0.5f, - 0.5f},
+            {-0.5f, - 0.5f,   0.5f},
+            {-0.5f, - 0.5f, - 0.5f},
         };
 
-    float traslation = 0;
-
-    while (is_running)
+    int faces[][3] = 
     {
-        SDL_PollEvent(&event);
-        switch (event.type)
-        {
-        case SDL_QUIT:
-            is_running = 0;
-            break;
+        {0, 1, 2},
+        {1, 2, 3},
+        {2, 3, 4},
+        {3, 4, 5},
+        {4, 5, 6},
+        {5, 6, 7},
+    };
 
-        case SDL_KEYDOWN:
-            switch (event.key.keysym.scancode)
+    float angle = 0.0f;
+    Vector3 traslation = {0.0f, 0.0f, 5.0f};
+    Vector3 vertex_a, vertex_b;
+
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+
+        ClearBackground(BLACK);
+
+        //for (auto vertex : pts)
+        //{
+        //    vertex.z = vertex.z + traslation;
+
+        //    point.x = transform_into_screenspace(project(vertex)).x - 10;
+        //    point.y = transform_into_screenspace(project(vertex)).y - 10;
+        //    //std::cout << vertex.x << ", " << vertex.y << "\n";
+        //    DrawRectangleRec(point, GREEN);
+        //}
+
+        angle += 0.001;
+        for (auto face : faces)
+        {
+            for (int i = 0; i < 3; i++)
             {
-            case SDL_SCANCODE_ESCAPE:
-                is_running = 0;
-                break;
+                vertex_a = rotate_x(pts[face[i]], angle);
+                vertex_b = rotate_x(pts[face[(i + 1) % 3]], angle);
 
-            default:
-                break;
+                vertex_a = traslate(vertex_a, traslation);
+                vertex_b = traslate(vertex_b, traslation);
+
+                DrawLineEx(transform_into_screenspace(project(vertex_a)), transform_into_screenspace(project(vertex_b)), 3, GREEN);
             }
-        default:
-            break;
         }
 
-        traslation += 0.001;
-        for (auto vertex : pts)
-        {
-            vertex.z = vertex.z + traslation;
-
-            point.x = transform_into_screenspace(project(vertex)).x;
-            point.y = transform_into_screenspace(project(vertex)).y;
-            //std::cout << vertex.x << ", " << vertex.y << "\n";
-
-            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            SDL_RenderClear(renderer);
-
-            SDL_SetRenderDrawColor(renderer, 128, 255, 128, 255);
-            SDL_RenderFillRectF(renderer, &point);
-
-            SDL_RenderPresent(renderer);
-        }
+        EndDrawing();
     }
 
-    SDL_Quit();
+    CloseWindow();
     return 0;
 }
