@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/ramos/Documents/Projects/3d rendering",
+            "binaryPath": "/home/ramos/Documents/Projects/3d rendering/render",
+            "binaryArgs": []
+        }
+    ]
+}
