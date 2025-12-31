@@ -3,6 +3,9 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <sstream>
+#include <vector>
 
 const int width = 1600;
 const int height = 900;
@@ -67,47 +70,69 @@ int main(int argc, char **argv)
     Rectangle point;
     point.height = 20;
     point.width = 20;
-
-    Vector3 pts[] =
-        {
-            {-0.5f, - 0.5f, - 0.5f},
-            {-0.5f,   0.5f, - 0.5f},
-            {0.5f,   0.5f, - 0.5f},
-            {0.5f, - 0.5f, - 0.5f},
-            {0.5f, - 0.5f,   0.5f},
-            {0.5f,   0.5f,   0.5f},
-            {-0.5f,   0.5f,   0.5f},
-            {-0.5f, - 0.5f,   0.5f},
-        };
-
-    int faces[][3] = 
+    
+    std::string file_name = "cube.obj";
+    std::fstream file(file_name);
+    if (!file.is_open())
     {
-        {0, 1, 2},
-        {2, 3, 0},
-        {2, 5, 3},
-        {5, 4, 3},
-        {6, 5, 4},
-        {6, 4, 7},
-        {1, 6, 7},
-        {1, 7, 0},
-    };
+        std::cerr << "Failed to open file " << file_name << "\n";
+    }
+
+    std::vector<float> vertices;
+    std::vector<int> indices;
+    std::vector<int> faceOffset = {0};
+    std::vector<int> faceSize;
+
+    std::string input_buffer;
+    std::istringstream input_buffer_stream(input_buffer);
+
+    float f_buffer;
+    int i_buffer;
+
+    while (file >> input_buffer)
+    {
+        if (input_buffer == "#")
+        {
+            std::getline(file, input_buffer);
+        }
+
+        if (input_buffer == "v")
+        {
+            std::getline(file, input_buffer);
+            input_buffer_stream = std::istringstream(input_buffer);
+            while(input_buffer_stream >> f_buffer)
+            {
+                vertices.push_back(f_buffer);
+            }
+        }
+
+        if (input_buffer == "f")
+        {
+            std::getline(file, input_buffer);
+
+            std::cout << input_buffer << "\n";
+
+            int face_vertex_count = 0;
+            while (input_buffer_stream >> i_buffer)
+            {
+                ++face_vertex_count;
+                indices.push_back(i_buffer);
+            }
+            faceSize.push_back(face_vertex_count);
+            faceOffset.push_back(faceOffset[faceOffset.size() - 1] + face_vertex_count);
+        }
+    }
+
+    file.close();
 
     Vector2 angle = {0.0f, 0.0f};
     Vector2 last_angle = angle;
     Vector3 traslation = {0.0f, 0.0f, 5.0f};
-    Vector3 vertex_buffer[3];
+    Vector3 *vertex3d_buffer;
+    Vector2 *vertex_buffer;
     Vector2 triangle[4];
 
-    RenderTexture2D face_texture;
-    face_texture = LoadRenderTexture(128, 128);
-
-    BeginTextureMode(face_texture);
-        ClearBackground(GREEN);
-    EndTextureMode();
-
     SetTargetFPS(120);
-
-    std::cout << sizeof(faces) << "\n";
 
     char label[] = "0";
     char angle_label[] = "x: 0.00, y: 0.00";
@@ -140,27 +165,29 @@ int main(int argc, char **argv)
         {
             angle = {0.0f, 0.0f};
         }
-        //angle_x = atanf(angle_x);
-        //angle_y = atanf(angle_y);
         
-        for (auto face : faces)
+        for (int i = 0; i < faceSize.size(); i++)
         {
-            for (int i = 0; i < 3; i++)
+            vertex3d_buffer = new Vector3[faceSize[i]];
+            for (int j = 0; j < faceSize[i]; j++)
             {
-                vertex_buffer[i] = pts[face[i]];
-                rotate_x(vertex_buffer[i], angle.y);
-                rotate_y(vertex_buffer[i], angle.x);
-                traslate(vertex_buffer[i], traslation);
+                vertex3d_buffer[j].x = vertices[indices[faceOffset[i]]];
+                vertex3d_buffer[j].y = vertices[indices[faceOffset[i]] + 1];
+                vertex3d_buffer[j].z = vertices[indices[faceOffset[i]] + 2];
                 
-                triangle[i] = transform_into_screenspace(project(vertex_buffer[i]));
-                label[0] = '0' + i;
-                //DrawText(label, triangle[i].x + 5, triangle[i].y + 5, 20, WHITE);
-
+                traslate(vertex3d_buffer[j], traslation);
+                rotate_x(vertex3d_buffer[j], angle.x);
+                rotate_y(vertex3d_buffer[j], angle.y);
             }
-            triangle[3] = triangle[0];
 
-            DrawLineStrip(triangle, 4, WHITE);
-            DrawTriangle(triangle[0], triangle[1], triangle[2], GREEN);
+            vertex_buffer = new Vector2[faceSize[i]];
+            for (int j = 0; j < faceSize[i]; j++)
+            {
+                vertex_buffer[j] = transform_into_screenspace(project(vertex3d_buffer[j]));
+            }
+
+            DrawTriangleFan(vertex_buffer, faceSize[i], GREEN);
+            delete vertex_buffer;
         }
 
         EndDrawing();
