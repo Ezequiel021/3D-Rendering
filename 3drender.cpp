@@ -2,6 +2,7 @@
 #include <math.h>
 #include <cstdio>
 #include <iostream>
+#include <string>
 
 const int width = 1600;
 const int height = 900;
@@ -91,7 +92,8 @@ int main(int argc, char **argv)
         {1, 7, 0},
     };
 
-    float angle_x = 0.0f, angle_y = 0.0f;
+    Vector2 angle = {0.0f, 0.0f};
+    Vector2 last_angle = angle;
     Vector3 traslation = {0.0f, 0.0f, 5.0f};
     Vector3 vertex_buffer[3];
     Vector2 triangle[4];
@@ -108,7 +110,10 @@ int main(int argc, char **argv)
     std::cout << sizeof(faces) << "\n";
 
     char label[] = "0";
+    char angle_label[] = "x: 0.00, y: 0.00";
 
+
+    Vector2 last_mouse_position;
     while (!WindowShouldClose())
     {
         BeginDrawing();
@@ -116,18 +121,35 @@ int main(int argc, char **argv)
         ClearBackground(BLACK);
 
         // Calculate angles
-        angle_y = -0.002 * (GetMousePosition().x - 0.5f * width);
-        angle_x = 0.002 * (GetMousePosition().y - 0.5f * height);
-        angle_x = atanf(angle_x);
-        angle_y = atanf(angle_y);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+            last_mouse_position = GetMousePosition();
+            last_angle = angle;
+        }
+
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            angle.x = last_angle.x + 0.01 * (GetMousePosition().x - last_mouse_position.x);
+            angle.y = last_angle.y + 0.01 * (GetMousePosition().y - last_mouse_position.y);
+        }
+
+        sprintf(angle_label, "x: %.2f, y: %.2f", angle.x, angle.y);
+        DrawText(angle_label, 10, 10, 20, RAYWHITE);
+
+        if (IsKeyPressed(KEY_R))
+        {
+            angle = {0.0f, 0.0f};
+        }
+        //angle_x = atanf(angle_x);
+        //angle_y = atanf(angle_y);
         
         for (auto face : faces)
         {
             for (int i = 0; i < 3; i++)
             {
                 vertex_buffer[i] = pts[face[i]];
-                rotate_x(vertex_buffer[i], angle_x);
-                rotate_y(vertex_buffer[i], angle_y);
+                rotate_x(vertex_buffer[i], angle.y);
+                rotate_y(vertex_buffer[i], angle.x);
                 traslate(vertex_buffer[i], traslation);
                 
                 triangle[i] = transform_into_screenspace(project(vertex_buffer[i]));
