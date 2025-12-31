@@ -37,6 +37,26 @@ void rotate_x(Vector3 &v, float angle)
     v.z = y * sin_a + z * cos_a;
 }
 
+void rotate_y(Vector3 &v, float angle)
+{
+    float sin_a = sinf(angle);
+    float cos_a = cosf(angle);
+    float x = v.x, y = v.y, z = v.z;
+
+    v.x = x * cos_a + z * sin_a;
+    v.z = z * cos_a - x * sin_a;
+}
+
+void rotate_z(Vector3 &v, float angle)
+{
+    float sin_a = sinf(angle);
+    float cos_a = cosf(angle);
+    float x = v.x, y = v.y, z = v.z;
+
+    v.x = x * cos_a - y * sin_a;
+    v.y = x * sin_a + y * cos_a;
+}
+
 int main(int argc, char **argv)
 {
     InitWindow(width, height, "3D Rendering Experiments");
@@ -49,29 +69,45 @@ int main(int argc, char **argv)
 
     Vector3 pts[] =
         {
-            {0.5f,   0.5f,   0.5f},
-            {0.5f,   0.5f, - 0.5f},
-            {0.5f, - 0.5f,   0.5f},
-            {0.5f, - 0.5f, - 0.5f},
-            {-0.5f,   0.5f,   0.5f},
-            {-0.5f,   0.5f, - 0.5f},
-            {-0.5f, - 0.5f,   0.5f},
             {-0.5f, - 0.5f, - 0.5f},
+            {-0.5f,   0.5f, - 0.5f},
+            {0.5f,   0.5f, - 0.5f},
+            {0.5f, - 0.5f, - 0.5f},
+            {0.5f, - 0.5f,   0.5f},
+            {0.5f,   0.5f,   0.5f},
+            {-0.5f,   0.5f,   0.5f},
+            {-0.5f, - 0.5f,   0.5f},
         };
 
     int faces[][3] = 
     {
         {0, 1, 2},
-        {1, 2, 3},
-        {2, 3, 4},
-        {3, 4, 5},
-        {4, 5, 6},
-        {5, 6, 7},
+        {2, 3, 0},
+        {2, 5, 3},
+        {5, 4, 3},
+        {6, 5, 4},
+        {6, 4, 7},
+        {1, 6, 7},
+        {1, 7, 0},
     };
 
-    float angle = 0.0f;
+    float angle_x = 0.0f, angle_y = 0.0f;
     Vector3 traslation = {0.0f, 0.0f, 5.0f};
-    Vector3 vertex_a, vertex_b;
+    Vector3 vertex_buffer[3];
+    Vector2 triangle[4];
+
+    RenderTexture2D face_texture;
+    face_texture = LoadRenderTexture(128, 128);
+
+    BeginTextureMode(face_texture);
+        ClearBackground(GREEN);
+    EndTextureMode();
+
+    SetTargetFPS(120);
+
+    std::cout << sizeof(faces) << "\n";
+
+    char label[] = "0";
 
     while (!WindowShouldClose())
     {
@@ -79,32 +115,30 @@ int main(int argc, char **argv)
 
         ClearBackground(BLACK);
 
-        //for (auto vertex : pts)
-        //{
-        //    vertex.z = vertex.z + traslation;
-
-        //    point.x = transform_into_screenspace(project(vertex)).x - 10;
-        //    point.y = transform_into_screenspace(project(vertex)).y - 10;
-        //    //std::cout << vertex.x << ", " << vertex.y << "\n";
-        //    DrawRectangleRec(point, GREEN);
-        //}
-
-        angle += 0.001;
+        // Calculate angles
+        angle_y = -0.002 * (GetMousePosition().x - 0.5f * width);
+        angle_x = 0.002 * (GetMousePosition().y - 0.5f * height);
+        angle_x = atanf(angle_x);
+        angle_y = atanf(angle_y);
+        
         for (auto face : faces)
         {
             for (int i = 0; i < 3; i++)
             {
-                vertex_a = pts[face[i]], angle; 
-                vertex_b = pts[face[(i + 1) % 3]];
+                vertex_buffer[i] = pts[face[i]];
+                rotate_x(vertex_buffer[i], angle_x);
+                rotate_y(vertex_buffer[i], angle_y);
+                traslate(vertex_buffer[i], traslation);
+                
+                triangle[i] = transform_into_screenspace(project(vertex_buffer[i]));
+                label[0] = '0' + i;
+                //DrawText(label, triangle[i].x + 5, triangle[i].y + 5, 20, WHITE);
 
-                rotate_x(vertex_a, angle);
-                rotate_x(vertex_b, angle);
-
-                traslate(vertex_a, traslation);
-                traslate(vertex_b, traslation);
-
-                DrawLineEx(transform_into_screenspace(project(vertex_a)), transform_into_screenspace(project(vertex_b)), 3, GREEN);
             }
+            triangle[3] = triangle[0];
+
+            DrawLineStrip(triangle, 4, WHITE);
+            DrawTriangle(triangle[0], triangle[1], triangle[2], GREEN);
         }
 
         EndDrawing();
