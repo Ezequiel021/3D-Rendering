@@ -93,7 +93,10 @@ void normalize(Vector3 &v)
 Vector2 transform_into_screenspace(Vector2 v)
 {
     int minsize = height < width ? height : width;
-    return {v.x * minsize + 0.5f * width, v.y * minsize + 0.5f * height};
+    return {
+        v.x * minsize + 0.5f * width, 
+        -v.y * minsize + 0.5f * height
+    };
 }
 
 Vector2 project(Vector3 v)
@@ -138,6 +141,11 @@ float dot_prod(Vector3 u, Vector3 v)
 {
     return u.x * v.x + u.y * v.y + u.z * v.z;
 }
+
+Vector3 scale(Vector3 v, float s)
+{
+    return {v.x * s, v.y * s, v.z * s};
+}
 // ... fin funciones auxiliares ...
 
 int main(int argc, char **argv)
@@ -145,7 +153,7 @@ int main(int argc, char **argv)
     InitWindow(width, height, "3D Rendering Experiments");
 
     // OBJ Loading Logic
-    std::string file_name = "cube.obj";
+    std::string file_name = argv[1];
     std::fstream file(file_name);
     if (!file.is_open())
     {
@@ -215,7 +223,7 @@ int main(int argc, char **argv)
     Vector2 angle = {0.0f, 0.0f};
     Vector2 last_angle = angle;
     Vector3 traslation = {0.0f, 0.0f, 5.0f};
-    Vector3 light_direction = {0.0f, 0.0f, 1.0f};
+    Vector3 light_direction = {0.0f, 0.0f, -1.0f};
     normalize(light_direction);
 
     // Eliminamos los punteros globales innecesarios para evitar fugas
@@ -242,60 +250,68 @@ int main(int argc, char **argv)
 
         // Draw
         BeginDrawing();
-        ClearBackground(BLACK);
+        ClearBackground(RAYWHITE);
 
         DrawText(TextFormat("x: %.2f, y: %.2f", angle.x, angle.y), 10, 10, 20, RAYWHITE);
 
         // CORRECCIÓN 2: Iterar basado en faceSize, no faceOffset
         for (int i = 0; i < faceSize.size(); i++)
         {
-            int currentFaceSize = faceSize[i];
 
-            // Usamos vector dinámico local (RAII) para evitar new/delete manual y fugas
-            std::vector<Vector2> screen_vertices(currentFaceSize);
-
-            for (int j = 0; j < currentFaceSize; j++)
-            {
-                // CORRECCIÓN 3: Lógica de índices correcta
-                // 1. Obtener índice del array de indices global
-                // Offset de la cara actual + vértice actual de la cara (j)
-                int index_in_indices = faceOffset[i] + j;
-
-                // 2. Obtener el índice del vértice en formato OBJ (Base-1)
-                int obj_vertex_index = indices[index_in_indices];
-
-                // 3. Convertir a índice de array de floats (Base-0, saltos de 3)
-                int float_base_index = (obj_vertex_index - 1) * 3;
-
-                // Seguridad básica
-                if (float_base_index < 0 || float_base_index + 2 >= vertices.size())
-                    continue;
-
-                Vector3 v3;
-                v3.x = vertices[float_base_index];
-                v3.y = vertices[float_base_index + 1];
-                v3.z = vertices[float_base_index + 2];
-
-                rotate_x(v3, angle.y); // Usualmente mouse Y rota en eje X
-                rotate_y(v3, angle.x); // Mouse X rota en eje Y
-                traslate(v3, traslation);
-
-                screen_vertices[j] = transform_into_screenspace(project(v3));
-            }
-            Vector3 normal = normals[i];
+            Vector3 normal = scale(normals[i], -1.0f);
             rotate_x(normal, angle.y);
             rotate_y(normal, angle.x);
-            traslate(normal, traslation);
 
-            Color face_color = GREEN;
-            // Raylib espera un puntero, vector.data() nos lo da
-            DrawTriangleFan(screen_vertices.data(), currentFaceSize, face_color);
-
-            // Dibuja bordes para ver mejor la forma 3D (opcional)
-            for (int k = 0; k < currentFaceSize; k++)
+            if (normal.z > 0)
             {
-                DrawLineV(screen_vertices[k], add(transform_into_screenspace(project(normal)), screen_vertices[k]), WHITE);
-                DrawLineV(screen_vertices[k], screen_vertices[(k + 1) % currentFaceSize], DARKGREEN);
+                int currentFaceSize = faceSize[i];
+
+                // Usamos vector dinámico local (RAII) para evitar new/delete manual y fugas
+                std::vector<Vector2> screen_vertices(currentFaceSize);
+
+                for (int j = 0; j < currentFaceSize; j++)
+                {
+                    // CORRECCIÓN 3: Lógica de índices correcta
+                    // 1. Obtener índice del array de indices global
+                    // Offset de la cara actual + vértice actual de la cara (j)
+                    int index_in_indices = faceOffset[i] + j;
+
+                    // 2. Obtener el índice del vértice en formato OBJ (Base-1)
+                    int obj_vertex_index = indices[index_in_indices];
+
+                    // 3. Convertir a índice de array de floats (Base-0, saltos de 3)
+                    int float_base_index = (obj_vertex_index - 1) * 3;
+
+                    // Seguridad básica
+                    if (float_base_index < 0 || float_base_index + 2 >= vertices.size())
+                        continue;
+
+                    Vector3 v3;
+                    v3.x = vertices[float_base_index];
+                    v3.y = vertices[float_base_index + 1];
+                    v3.z = vertices[float_base_index + 2];
+
+                    rotate_x(v3, angle.y); // Usualmente mouse Y rota en eje X
+                    rotate_y(v3, angle.x); // Mouse X rota en eje Y
+                    traslate(v3, traslation);
+
+                    screen_vertices[j] = transform_into_screenspace(project(v3));
+                    DrawLineV(screen_vertices[j], transform_into_screenspace(project(normal)), RED);
+                }
+
+                Color face_color = normal.z > 0.0f ? BLUE : GREEN;
+                float intensity = normal.z > 0.0f ? normal.z : -normal.z;
+                face_color.r *= intensity;
+                face_color.g *= intensity;
+                face_color.b *= intensity;
+                // Raylib espera un puntero, vector.data() nos lo da
+                DrawTriangleFan(screen_vertices.data(), currentFaceSize, face_color);
+
+                // Dibuja bordes para ver mejor la forma 3D (opcional)
+                // for (int k = 0; k < currentFaceSize; k++)
+                // {
+                //     DrawLineV(screen_vertices[k], screen_vertices[(k + 1) % currentFaceSize], DARKGREEN);
+                // }
             }
         }
 
